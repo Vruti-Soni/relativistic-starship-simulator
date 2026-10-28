@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relativistic Starfield & Starship Simulator</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #010204; font-family: 'Courier New', Courier, monospace; color: #fff; }
+        #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+        .vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 120px rgba(0,0,0,0.85); pointer-events: none; z-index: 2; }
+        .hud-panel { position: absolute; top: 25px; left: 25px; z-index: 10; background: rgba(4, 8, 15, 0.85); border: 1px solid rgba(0, 255, 204, 0.25); border-left: 3px solid #00ffcc; padding: 18px 22px; border-radius: 4px; width: 320px; backdrop-filter: blur(10px); box-shadow: 0 15px 35px rgba(0,0,0,0.9); }
+        .hud-title { font-size: 13px; letter-spacing: 2px; color: #00ffcc; margin-bottom: 12px; text-transform: uppercase; font-weight: bold; }
+        .hud-metric { display: flex; justify-content: space-between; font-size: 11px; line-height: 1.8; color: #8ab4f8; border-bottom: 1px dashed rgba(255,255,255,0.08); }
+        .hud-value { color: #ffffff; font-weight: bold; }
+        .control-group { margin-top: 14px; }
+        .control-label { font-size: 10px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+        input[type=range] { width: 100%; accent-color: #00ffcc; cursor: pointer; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+        .hud-btn { background: rgba(0, 255, 204, 0.08); border: 1px solid rgba(0, 255, 204, 0.4); color: #00ffcc; padding: 8px; font-family: inherit; font-size: 10px; letter-spacing: 1px; cursor: pointer; border-radius: 2px; transition: all 0.2s ease; text-transform: uppercase; }
+        .hud-btn:hover { background: rgba(0, 255, 204, 0.25); color: #fff; box-shadow: 0 0 12px rgba(0,255,204,0.4); }
+    </style>
+</head>
+<body>
+    <div class="vignette"></div>
+    <div id="canvas-container"></div>
+    <div class="hud-panel">
+        <div class="hud-title">Relativistic Flight HUD</div>
+        <div class="hud-metric"><span>Velocity (&beta;):</span><span id="val-beta" class="hud-value">0.000 c</span></div>
+        <div class="hud-metric"><span>Lorentz Factor (&gamma;):</span><span id="val-gamma" class="hud-value">1.000</span></div>
+        <div class="hud-metric"><span>Time Dilation:</span><span id="val-time" class="hud-value">1.00x</span></div>
+        <div class="control-group">
+            <span class="control-label">Relativistic Thrust</span>
+            <input type="range" id="slider-beta" min="0" max="0.98" step="0.005" value="0">
+        </div>
+        <div class="btn-group">
+            <button id="btn-cam" class="hud-btn">Cam: IMAX Track</button>
+            <button id="btn-warp" class="hud-btn">Engage Warp</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    (function() {
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x010204, 0.0001);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.set(0, 15, 60);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0x223344, 0.9);
+        scene.add(ambientLight);
+        const mainLight = new THREE.DirectionalLight(0xffeedd, 1.5);
+        mainLight.position.set(100, 200, 100);
+        scene.add(mainLight);
+
+        const shipGroup = new THREE.Group();
+        const fuselageGeo = new THREE.ConeGeometry(2.5, 14, 32);
+        fuselageGeo.rotateX(Math.PI / 2);
+        const fuselageMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.85, roughness: 0.2 });
+        shipGroup.add(new THREE.Mesh(fuselageGeo, fuselageMat));
+
+        const cockpitGeo = new THREE.SphereGeometry(1.0, 32, 16);
+        cockpitGeo.scale(1, 0.6, 2);
+        const cockpitMat = new THREE.MeshPhysicalMaterial({ color: 0x001122, metalness: 0.1, roughness: 0.1, transmission: 0.7, thickness: 0.5 });
+        const cockpit = new THREE.Mesh(cockpitGeo, cockpitMat);
+        cockpit.position.set(0, 0.5, 1.2);
+        shipGroup.add(cockpit);
+
+        const nacelleGeo = new THREE.CylinderGeometry(0.4, 0.4, 7, 32);
+        nacelleGeo.rotateX(Math.PI / 2);
+        const nacelleMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.9, roughness: 0.3 });
+        const leftNacelle = new THREE.Mesh(nacelleGeo, nacelleMat);
+        leftNacelle.position.set(-3.0, -0.3, -0.8);
+        shipGroup.add(leftNacelle);
+        const rightNacelle = new THREE.Mesh(nacelleGeo, nacelleMat);
+        rightNacelle.position.set(3.0, -0.3, -0.8);
+        shipGroup.add(rightNacelle);
+
+        const plasmaGeo = new THREE.SphereGeometry(0.55, 16, 16);
+        const plasmaMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+        const leftPlasma = new THREE.Mesh(plasmaGeo, plasmaMat);
+        leftPlasma.position.set(-3.0, -0.3, -4.5);
+        shipGroup.add(leftPlasma);
+        const rightPlasma = new THREE.Mesh(plasmaGeo, plasmaMat);
+        rightPlasma.position.set(3.0, -0.3, -4.5);
+        shipGroup.add(rightPlasma);
+        scene.add(shipGroup);
+
+        const starCount = 6000;
+        const starGeo = new THREE.BufferGeometry();
+        const starPositions = [], originalDirs = [], baseColors = [], colors = [];
+        for (let i = 0; i < starCount; i++) {
+            const theta = Math.random() * 2 * Math.PI;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const r = 1000 + Math.random() * 1500;
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+            starPositions.push(x, y, z);
+            const len = Math.sqrt(x*x + y*y + z*z);
+            originalDirs.push(x/len, y/len, z/len);
+            const rnd = Math.random();
+            if (rnd > 0.8) baseColors.push(0.6, 0.8, 1.0);
+            else if (rnd > 0.4) baseColors.push(1.0, 1.0, 0.9);
+            else baseColors.push(1.0, 0.6, 0.4);
+            colors.push(baseColors[i*3], baseColors[i*3+1], baseColors[i*3+2]);
+        }
+        starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+        starGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        const starField = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 3.0, vertexColors: true, transparent: true, opacity: 0.9 }));
+        scene.add(starField);
+
+        let beta = 0.0, targetBeta = 0.0, cameraMode = 0;
+        const clock = new THREE.Clock();
+        const sliderBeta = document.getElementById('slider-beta');
+        const valBeta = document.getElementById('val-beta');
+        const valGamma = document.getElementById('val-gamma');
+        const valTime = document.getElementById('val-time');
+        const btnCam = document.getElementById('btn-cam');
+        const btnWarp = document.getElementById('btn-warp');
+
+        sliderBeta.addEventListener('input', (e) => { targetBeta = parseFloat(e.target.value); });
+        btnWarp.addEventListener('click', () => { targetBeta = targetBeta > 0.8 ? 0.0 : 0.95; sliderBeta.value = targetBeta; });
+        const camModes = ["IMAX Track", "Cockpit View", "Side Orbit"];
+        btnCam.addEventListener('click', () => { cameraMode = (cameraMode + 1) % camModes.length; btnCam.textContent = "Cam: " + camModes[cameraMode]; });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+            beta += (targetBeta - beta) * 0.05;
+            valBeta.textContent = beta.toFixed(3) + " c";
+            const gamma = 1.0 / Math.sqrt(1.0 - beta * beta + 0.00001);
+            valGamma.textContent = gamma.toFixed(3);
+            valTime.textContent = gamma.toFixed(2) + "x";
+
+            if (cameraMode === 0) {
+                camera.position.x = Math.sin(elapsedTime * 0.5) * 35;
+                camera.position.z = Math.cos(elapsedTime * 0.5) * 35 + 20;
+                camera.position.y = 8;
+                camera.lookAt(shipGroup.position);
+                shipGroup.visible = true;
+            } else if (cameraMode === 1) {
+                camera.position.set(0, 0.2, 3);
+                camera.lookAt(0, 0.2, -100);
+                shipGroup.visible = false;
+            } else if (cameraMode === 2) {
+                camera.position.set(40, 5, 0);
+                camera.lookAt(shipGroup.position);
+                shipGroup.visible = true;
+            }
+
+            const posAttr = starGeo.attributes.position;
+            const colAttr = starGeo.attributes.color;
+            for (let i = 0; i < starCount; i++) {
+                let ox = originalDirs[i * 3], oy = originalDirs[i * 3 + 1], oz = originalDirs[i * 3 + 2];
+                let denom = 1.0 - beta * oz;
+                if (Math.abs(denom) < 0.0001) denom = 0.0001;
+                let x_prime = ox / (gamma * denom), y_prime = oy / (gamma * denom), z_prime = (oz - beta) / denom;
+                let D = 1.0 / (gamma * denom), r = 1200;
+                posAttr.setXYZ(i, x_prime * r, y_prime * r, z_prime * r);
+
+                let rBase = baseColors[i * 3], gBase = baseColors[i * 3 + 1], bBase = baseColors[i * 3 + 2];
+                let rCol, gCol, bCol;
+                if (D > 1.0) {
+                    let shift = Math.min(2.0, D - 1.0);
+                    rCol = Math.max(0, rBase * (1.0 - shift));
+                    gCol = Math.min(1.0, gBase + shift * 0.2);
+                    bCol = Math.min(2.5, bBase + shift * 1.8);
+                } else {
+                    let shift = Math.min(1.0, 1.0 - D);
+                    rCol = Math.min(2.5, rBase + shift * 1.8);
+                    gCol = Math.max(0, gBase * (1.0 - shift));
+                    bCol = Math.max(0, bBase * (1.0 - shift));
+                }
+                colAttr.setXYZ(i, rCol, gCol, bCol);
+            }
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+        animate();
+    })();
+    </script>
+</body>
+</html>

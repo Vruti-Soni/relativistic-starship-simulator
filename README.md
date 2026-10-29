@@ -1,18 +1,6 @@
 # relativistic-starship-simulator
 # Relativistic Starship & Starfield Simulator
-
 A high-performance, browser-based interactive 3D simulation exploring the visual and kinematic effects of **Special Relativity**. Built with **Three.js** and WebGL, this project models real-time **Relativistic Aberration** and **Spectral Doppler Shifting (Doppler Beaming)** across a 6,000-star field from the perspective of an accelerating starship.
-
-![Three.js](https://img.shields.io/badge/Three.js-r128-blue)
-![Physics](https://img.shields.io/badge/Physics-Special%20Relativity-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
-
----
-
-## 🚀 Live Demo
-Experience the simulation live in your browser:  
-🔗 **[View Live Simulator](https://your-username.github.io/relativistic-starship-simulator/)** *(Replace with your actual GitHub Pages URL)*
-
 ---
 
 ## 🔬 Core Physics Implementations
@@ -43,11 +31,8 @@ $$D = \frac{1}{\gamma (1 - \beta \cos\theta)}$$
 - **Telemetry HUD:** Live readout monitoring velocity ($\beta$), Lorentz factor ($\gamma$), and time dilation.
 
 ---
-
-## 💻 Local Installation & Usage
-
-To run the simulator locally on your machine:
+Result( https://vruti-soni.github.io/relativistic-starship-simulator/)
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/your-username/relativistic-starship-simulator.git](https://github.com/your-username/relativistic-starship-simulator.git)
+   git clone [https://github.com/your-username/relativistic-stars

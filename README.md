@@ -32,7 +32,3 @@ $$D = \frac{1}{\gamma (1 - \beta \cos\theta)}$$
 
 ---
 Result( https://vruti-soni.github.io/relativistic-starship-simulator/)
-
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/your-username/relativistic-stars
